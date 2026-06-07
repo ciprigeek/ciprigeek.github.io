@@ -17,19 +17,27 @@ hero:
       variant: secondary
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid>
-  <Card title="Homelab" icon="laptop">
-    Arquitectura, hardware y configuración de mi laboratorio en casa. Documentación técnica real, sin atajos.
-  </Card>
-  <Card title="Reviews" icon="magnifier">
-    Análisis en profundidad de hardware y software. Perspectiva de engineer, no de unboxer.
-  </Card>
-  <Card title="Tutoriales" icon="open-book">
-    Guías paso a paso sobre Linux, redes, virtualización y desarrollo. Directas al grano.
-  </Card>
-  <Card title="YouTube" icon="external">
-    Todo el contenido en vídeo en [@ciprigeek](https://youtube.com/@ciprigeek). Suscríbete para no perderte nada.
-  </Card>
+  <LinkCard
+    title="Homelab"
+    href="/homelab/intro/"
+    description="Arquitectura, hardware y configuración de mi laboratorio en casa. Documentación técnica real, sin atajos."
+  />
+  <LinkCard
+    title="Reviews"
+    href="/reviews/"
+    description="Análisis en profundidad de hardware y software. Perspectiva de engineer, no de unboxer."
+  />
+  <LinkCard
+    title="Tutoriales"
+    href="/blog/"
+    description="Guías paso a paso sobre Linux, redes, virtualización y desarrollo. Directas al grano."
+  />
+  <LinkCard
+    title="YouTube"
+    href="https://youtube.com/@ciprigeek"
+    description="Todo el contenido en vídeo. Suscríbete para no perderte nada."
+  />
 </CardGrid>
