@@ -1,0 +1,36 @@
+---
+title: CipriGeek
+description: Homelab, reviews tech y tutoriales por un sw engineer youtuber.
+template: splash
+hero:
+  tagline: Homelab · Reviews · Tutoriales
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Ver el Homelab
+      link: /homelab/intro/
+      icon: right-arrow
+    - text: Reviews
+      link: /reviews/
+      icon: document
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## ¿Qué encontrarás aquí?
+
+<CardGrid stagger>
+  <Card title="Homelab" icon="laptop">
+    Documentación completa de mi homelab: hardware, red, servicios y configuraciones.
+  </Card>
+  <Card title="Reviews Tech" icon="star">
+    Análisis detallados de hardware y software para developers y homelabbers.
+  </Card>
+  <Card title="Blog" icon="pencil">
+    Tutoriales, notas y reflexiones sobre tecnología y desarrollo de software.
+  </Card>
+  <Card title="YouTube" icon="youtube">
+    Todo el contenido en vídeo en el canal [@ciprigeek](https://youtube.com/@ciprigeek).
+  </Card>
+</CardGrid>
