@@ -31,12 +31,35 @@ ssh usuario@ip_del_servidor
 
 Si entras sin que te pida contraseña, todo ha ido bien. **No sigas al siguiente paso hasta confirmar esto**, o podrías quedarte fuera del servidor.
 
+## Configura un acceso fácil con `~/.ssh/config`
+
+Para no tener que escribir la IP y el usuario cada vez, podemos crear un alias en el fichero de configuración de SSH de nuestro ordenador. En nuestro caso, el servidor del homelab se llama `experimental` y está en la IP `192.168.188.18`:
+
+```bash
+vim ~/.ssh/config
+```
+
+Y añadimos:
+
+```
+Host experimental
+    HostName 192.168.188.18
+    User usuario
+    IdentityFile ~/.ssh/id_ed25519
+```
+
+A partir de ahora, podemos conectarnos simplemente con:
+
+```bash
+ssh experimental
+```
+
 ## Desactiva el acceso por contraseña
 
 Edita la configuración del servidor SSH:
 
 ```bash
-sudo nano /etc/ssh/sshd_config
+sudo vim /etc/ssh/sshd_config
 ```
 
 Y asegúrate de que estas líneas tengan estos valores (descomentándolas si hace falta):
