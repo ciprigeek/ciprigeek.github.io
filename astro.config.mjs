@@ -29,6 +29,7 @@ export default defineConfig({
 							{ label: 'SSH solo con clave', slug: 'homelab-by-hp/04-ssh' },
 							{ label: 'Tailscale', slug: 'homelab-by-hp/05-tailscale' },
 							{ label: 'Firewall', slug: 'homelab-by-hp/06-firewall' },
+							{ label: 'Actualizaciones automáticas', slug: 'homelab-by-hp/07-actualizaciones-automaticas' },
 					],
 				},
 			],
