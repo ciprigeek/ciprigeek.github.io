@@ -23,13 +23,9 @@ export default defineConfig({
 				{
 					label: 'Homelab',
 					items: [
-						{ label: 'Introducción', slug: 'homelab/intro' },
-						{ label: 'Hardware', slug: 'homelab/hardware' },
-						{ label: 'Red y networking', slug: 'homelab/network' },
-						{
-							label: 'Servicios',
-							items: [{ autogenerate: { directory: 'homelab/services' } }],
-						},
+						{ label: 'Introducción', slug: 'homelab-by-hp/01-intro' },
+						{ label: 'Hardware', slug: 'homelab-by-hp/02-hardware' },
+						{ label: 'Red y networking', slug: 'homelab-by-hp/network' },
 					],
 				},
 			],
