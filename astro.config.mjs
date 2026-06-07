@@ -7,7 +7,7 @@ export default defineConfig({
 	site: 'https://ciprigeek.github.io',
 	integrations: [
 		starlight({
-			title: 'CipriGeek',
+			title: 'Cipri Geek',
 			defaultLocale: 'root',
 			locales: {
 				root: { label: 'Español', lang: 'es' },
