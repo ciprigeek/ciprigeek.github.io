@@ -40,10 +40,6 @@ export default defineConfig({
 					label: 'Blog',
 					items: [{ autogenerate: { directory: 'blog' } }],
 				},
-				{
-					label: 'Sobre mí',
-					items: [{ label: 'Quién soy', slug: 'about' }],
-				},
 			],
 		}),
 	],
