@@ -32,14 +32,6 @@ export default defineConfig({
 						},
 					],
 				},
-				{
-					label: 'Reviews',
-					items: [{ autogenerate: { directory: 'reviews' } }],
-				},
-				{
-					label: 'Blog',
-					items: [{ autogenerate: { directory: 'blog' } }],
-				},
 			],
 		}),
 	],
