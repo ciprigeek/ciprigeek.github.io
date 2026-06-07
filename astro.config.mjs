@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://ciprigeek.github.io',
+	site: 'https://ciprigeek.com',
 	integrations: [
 		starlight({
 			title: 'Cipri Geek',
