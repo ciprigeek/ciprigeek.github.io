@@ -20,7 +20,7 @@ Busca el nombre de tu interfaz (por ejemplo `eth0`, `ens33`, `enp0s3`).
 ### 2. Edita el fichero de Netplan
 
 ```bash
-sudo nano /etc/netplan/00-installer-config.yaml
+sudo vim /etc/netplan/00-installer-config.yaml
 # el nombre exacto puede variar, lista los ficheros con: ls /etc/netplan/
 ```
 
