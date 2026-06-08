@@ -23,13 +23,7 @@ export default defineConfig({
 				{
 					label: 'Homelab',
 					items: [
-						{ label: 'Introducción', slug: 'homelab-by-hp/01-intro' },
-						{ label: 'Hardware', slug: 'homelab-by-hp/02-hardware' },
-						{ label: 'Red y networking', slug: 'homelab-by-hp/03-network' },
-							{ label: 'SSH solo con clave', slug: 'homelab-by-hp/04-ssh' },
-							{ label: 'Tailscale', slug: 'homelab-by-hp/05-tailscale' },
-							{ label: 'Firewall', slug: 'homelab-by-hp/06-firewall' },
-							{ label: 'Actualizaciones automáticas', slug: 'homelab-by-hp/07-actualizaciones-automaticas' },
+						{ label: 'Preparando el servidor #01', slug: 'homelab-by-hp/01-preparando-el-servidor' },
 					],
 				},
 			],
