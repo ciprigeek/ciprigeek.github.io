@@ -177,6 +177,24 @@ PubkeyAuthentication yes
 PermitRootLogin no
 ```
 
+**En Ubuntu Server 26.04 LTS (y versiones recientes con cloud-init)** hay un fichero adicional que sobreescribe esta configuración. Comprueba si existe:
+
+```bash
+cat /etc/ssh/sshd_config.d/50-cloud-init.conf
+```
+
+Si ves `PasswordAuthentication yes`, edítalo también:
+
+```bash
+sudo vim /etc/ssh/sshd_config.d/50-cloud-init.conf
+```
+
+Y cambia la línea a:
+
+```
+PasswordAuthentication no
+```
+
 Reinicia el servicio SSH para aplicar los cambios:
 
 ```bash
