@@ -23,7 +23,9 @@ export default defineConfig({
 				{
 					label: 'Homelab',
 					items: [
-						{ label: 'Preparando el servidor #01', slug: 'homelab-by-hp/01-preparando-el-servidor' },
+							{ label: 'Índice — Homelab', slug: 'homelab-by-hp' },
+							{ label: '01 — Preparando el servidor', slug: 'homelab-by-hp/01-preparando-el-servidor' },
+							{ label: '02 — Docker y Nextcloud', slug: 'homelab-by-hp/02-docker-y-nextcloud' },
 					],
 				},
 			],
