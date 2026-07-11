@@ -358,7 +358,7 @@ Tenemos el contenedor `redis` desplegado desde el principio, pero Nextcloud no l
 *Ventana de terminal*
 
 ```bash
-docker compose exec app vim /config/www/nextcloud/config/config.php
+vim ~/homelab/nextcloud/config/www/nextcloud/config/config.php
 ```
 
 Dentro del array `$CONFIG`, añade:
