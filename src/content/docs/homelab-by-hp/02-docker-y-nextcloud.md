@@ -128,6 +128,8 @@ services:
     volumes:
       - ./ts-nextcloud:/var/lib/tailscale
       - ./ts-nextcloud-config:/config
+    networks:
+      - nextcloud
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -149,7 +151,8 @@ services:
     volumes:
       - ./db:/config
     networks:
-      - nextcloud
+      nextcloud:
+        ipv4_address: 172.28.1.10
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -165,7 +168,8 @@ services:
     restart: unless-stopped
     command: redis-server --save "" --appendonly no
     networks:
-      - nextcloud
+      nextcloud:
+        ipv4_address: 172.28.1.11
     tmpfs:
       - /data
     security_opt:
@@ -202,12 +206,27 @@ services:
 networks:
   nextcloud:
     name: nextcloud
+    ipam:
+      config:
+        - subnet: 172.28.1.0/24
 ```
 
 ### Por qué `app` usa `network_mode: service:ts-nextcloud`
 El contenedor `app` (Nextcloud) comparte la pila de red del contenedor `ts-nextcloud` en lugar de tener la suya propia. Esto es lo que permite que Tailscale exponga directamente el puerto de Nextcloud bajo su propio nombre en la tailnet, sin pasos intermedios.
 
-`db` y `redis`, en cambio, se quedan en la red interna `nextcloud` — no son accesibles desde fuera, ni siquiera desde la tailnet. Solo `app` puede hablar con ellos.
+`db` y `redis` se quedan en la red interna `nextcloud`, cada uno con una **IP fija** (`172.28.1.10` y `172.28.1.11`) — no son accesibles desde fuera, ni siquiera desde la tailnet. `ts-nextcloud` también está metido en esa misma red `nextcloud`, así que `app`, al viajar dentro de su namespace, tiene ruta hasta esas IPs directamente. No usamos nombres de host para conectar a la base de datos, sino la IP fija — ver el aviso siguiente para el porqué.
+
+:::caution
+Este patrón tiene varias trampas típicas la primera vez que lo montas, todas relacionadas con que `app` no gestiona su propia red:
+
+**1. Si `ts-nextcloud` no está en la red `nextcloud`**, `app` no tendrá ni siquiera ruta hasta `db` y `redis`.
+
+**2. Docker no permite usar `dns:` en un servicio con `network_mode: service:...`** — da el error `conflicting options: dns and the network mode`.
+
+**3. Docker tampoco permite `extra_hosts:` en ese mismo escenario** — da el error `conflicting options: custom host-to-IP mapping and the network mode`.
+
+Como cualquier opción de red propia en `app` entra en conflicto con `network_mode: service:...`, la solución más simple y robusta es **no depender de resolución de nombres en absoluto**: le damos IP fija a `db` y `redis` en la red (`ipv4_address`), y en el instalador de Nextcloud usamos esa IP directamente en vez del nombre `db`.
+:::
 
 ---
 
@@ -229,16 +248,36 @@ vim ts-nextcloud-config/serve.json
     }
   },
   "Web": {
-    "${TS_CERT_DOMAIN}:443": {
+    "nextcloud.tu-tailnet.ts.net:443": {
       "Handlers": {
         "/": {
-          "Proxy": "https://127.0.0.1:443"
+          "Proxy": "https+insecure://127.0.0.1:443"
         }
       }
     }
   }
 }
 ```
+
+:::caution
+Sustituye `nextcloud.tu-tailnet.ts.net` por tu dominio real (lo ves en `login.tailscale.com/admin/dns`). Docker Compose **no** sustituye variables de entorno dentro de ficheros de configuración como este, así que hay que escribir el nombre completo a mano.
+
+Usamos `https+insecure://` y no `https://` porque Nextcloud sirve su propio certificado autofirmado en el puerto 443. Con `https://` a secas, Tailscale intenta verificar ese certificado, falla, y el resultado es un **502** al acceder. `https+insecure://` le dice a Tailscale que confíe en ese salto interno sin verificar el certificado — el tráfico entre tu navegador y Tailscale sigue yendo con HTTPS válido de Let's Encrypt en todo momento.
+:::
+
+:::caution
+**Nunca reinicies solo el contenedor `ts-nextcloud`.** Como `app` comparte su red con `network_mode: service:ts-nextcloud`, reiniciar únicamente el sidecar destruye el namespace de red del que depende Nextcloud, y el servicio deja de responder — incluso por IP directa — hasta que también reinicies `app`.
+
+Si necesitas reiniciar el sidecar de Tailscale (por ejemplo, tras cambiar el `serve.json`), reinicia siempre los dos juntos:
+
+*Ventana de terminal*
+
+```bash
+docker compose stop app ts-nextcloud
+docker compose up -d ts-nextcloud app
+```
+
+:::
 
 ---
 
@@ -287,14 +326,72 @@ https://nextcloud.tu-tailnet.ts.net
 Sustituye `tu-tailnet` por el nombre real de tu tailnet, que puedes consultar en [login.tailscale.com/admin/dns](https://login.tailscale.com/admin/dns).
 :::
 
-Verás el asistente inicial de Nextcloud. Crea tu usuario administrador y ya tienes tu primer servicio del homelab funcionando, accesible de forma segura desde cualquier dispositivo conectado a tu tailnet — el móvil, el portátil o el ordenador del trabajo — sin haber abierto un solo puerto en el router.
+Verás el asistente inicial de Nextcloud. Crea tu usuario administrador y, cuando te pida los datos de la base de datos, usa estos:
+
+Campo
+Valor
+
+Base de datos
+MySQL/MariaDB
+
+Usuario de la base de datos
+el valor de `DB_USER` en tu `.env` (`nextcloud`)
+
+Contraseña de la base de datos
+el valor de `DB_USER_PASS` en tu `.env`
+
+Nombre de la base de datos
+el valor de `DB_NAME` en tu `.env` (`nextcloud`)
+
+Host de la base de datos
+`172.28.1.10:3306`
+
+El host es la IP fija que le dimos a `db` en el `docker-compose.yml`, con el puerto por defecto de MySQL. No usamos el nombre `db` porque, como vimos más arriba, `app` no puede resolver nombres de host en este modo de red — solo tiene ruta directa a las IPs.
+
+Y ya tienes tu primer servicio del homelab funcionando, accesible de forma segura desde cualquier dispositivo conectado a tu tailnet — el móvil, el portátil o el ordenador del trabajo — sin haber abierto un solo puerto en el router.
+
+---
+
+## Activa Redis para caché y bloqueo de ficheros
+Tenemos el contenedor `redis` desplegado desde el principio, pero Nextcloud no lo usa todavía — hay que decírselo explícitamente. A diferencia de la imagen oficial de Nextcloud, que se autoconfigura con una variable de entorno, la imagen de **linuxserver** que usamos en este tutorial no aplica esa autoconfiguración: hay que editar `config.php` a mano.
+
+*Ventana de terminal*
+
+```bash
+docker compose exec app vim /config/www/nextcloud/config/config.php
+```
+
+Dentro del array `$CONFIG`, añade:
+
+```php
+'memcache.local' => '\OC\Memcache\Redis',
+'memcache.locking' => '\OC\Memcache\Redis',
+'redis' => array (
+    'host' => '172.28.1.11',
+    'port' => 6379,
+),
+```
+
+Usamos la IP fija de `redis` (`172.28.1.11`) por el mismo motivo que con `db`: `app` no resuelve nombres de host en este modo de red.
+
+Guarda y reinicia únicamente `app` para que recargue la configuración:
+
+*Ventana de terminal*
+
+```bash
+docker compose restart app
+```
+
+:::tip
+Comprueba que ha quedado bien aplicado entrando en **Ajustes → Administración → Resumen** dentro de Nextcloud. Si sigue habiendo un aviso sobre el memcache, revisa que no haya un error de sintaxis en el `config.php` — un error ahí puede dejar Nextcloud inaccesible hasta corregirlo.
+:::
 
 ---
 
 ## Qué hemos conseguido
 - Docker instalado y funcionando en el servidor.
 - Una estructura de carpetas ordenada para ir añadiendo servicios.
-- Nextcloud desplegado con base de datos y caché propios.
+- Nextcloud desplegado con base de datos y caché Redis propios.
 - Acceso remoto seguro con HTTPS automático y subdominio propio, sin exponer nada a internet.
 
 En el próximo episodio seguimos ampliando el homelab con un nuevo servicio, siguiendo exactamente este mismo patrón de carpeta + Tailscale sidecar.
