@@ -385,6 +385,33 @@ docker compose restart app
 :::tip
 Comprueba que ha quedado bien aplicado entrando en **Ajustes → Administración → Resumen** dentro de Nextcloud. Si sigue habiendo un aviso sobre el memcache, revisa que no haya un error de sintaxis en el `config.php` — un error ahí puede dejar Nextcloud inaccesible hasta corregirlo.
 :::
+ 
+### Verificación y mantenimiento con `occ`
+ 
+Para confirmar que Nextcloud está usando Redis, o para resolver otros avisos de mantenimiento del Resumen (índices y columnas de base de datos que faltan), entra en una shell dentro del contenedor:
+ 
+*Ventana de terminal*
+ 
+```bash
+docker compose exec -u root app bash
+```
+ 
+Y una vez dentro, lanza los comandos `occ` que necesites:
+ 
+```bash
+cd /config/www/nextcloud
+occ config:system:get memcache.local
+occ config:system:get memcache.locking
+occ config:system:get redis
+occ db:add-missing-indices
+occ db:add-missing-columns
+occ db:convert-filecache-bigint
+```
+ 
+Los tres primeros te confirman que Redis está cargado (deberían devolver `\OC\Memcache\Redis` y la IP que configuraste). Los tres últimos resuelven avisos habituales de mantenimiento de base de datos que Nextcloud suele mostrar en el Resumen tras la instalación.
+ 
+Sal con `exit` cuando termines.
+
 
 ---
 
