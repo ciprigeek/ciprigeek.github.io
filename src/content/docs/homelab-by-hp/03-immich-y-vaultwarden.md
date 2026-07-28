@@ -1,6 +1,6 @@
 ---
 title: "Fotos y contraseñas: Immich y Vaultwarden — Tu primer HomeLab (powered by HP) #03"
-description: Despliega Immich como alternativa autoalojada a Google Fotos y Vaultwarden como gestor de contraseñas, cada uno con su propio subdominio y HTTPS automático vía Tailscale. Cierra el episodio con Watchtower avisándote de actualizaciones disponibles.
+description: Despliega Immich como alternativa autoalojada a Google Fotos y Vaultwarden como gestor de contraseñas, cada uno con su propio subdominio y HTTPS automático vía Tailscale. Cierra el episodio con tu propio servidor de notificaciones ntfy y Watchtower avisándote de actualizaciones disponibles.
 ---
 
 ## Recordando el episodio anterior
@@ -378,15 +378,161 @@ No olvides desactivar la caducidad del dispositivo también para `immich` en [lo
 
 ---
 
+## Tu propio servidor de notificaciones: ntfy
+
+Antes de montar Watchtower, desplegamos nuestro propio servidor de notificaciones — así no dependemos del servicio público `ntfy.sh` y todo el tráfico se queda dentro de tu homelab.
+
+### Estructura de carpeta
+
+*Ventana de terminal*
+
+```bash
+mkdir -p ~/homelab/ntfy
+cd ~/homelab/ntfy
+```
+
+### Genera la auth key de Tailscale
+
+Mismo proceso de siempre en [login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
+
+### El `.env`
+
+*Ventana de terminal*
+
+```bash
+vim .env
+```
+
+```bash
+TZ=Europe/Madrid
+TS_AUTHKEY=tskey-auth-xxxxxxxxxx
+NTFY_TOPIC=homelab-updates
+```
+
+`NTFY_TOPIC` es el nombre del "canal" al que se suscribirá tu móvil. Como el servidor ya está protegido por Tailscale (nadie fuera de tu tailnet puede ni siquiera llegar a él), no hace falta que sea un nombre difícil de adivinar como en la versión pública.
+
+### El `docker-compose.yml`
+
+Aquí introducimos una novedad respecto a los servicios anteriores: además de la red del sidecar de Tailscale, `ts-ntfy` se conecta también a una red interna con IP fija (`ntfy_internal`). La usaremos justo después para que Watchtower pueda enviarle notificaciones sin salir a internet.
+
+*Ventana de terminal*
+
+```bash
+vim docker-compose.yml
+```
+
+```yaml
+services:
+  ts-ntfy:
+    container_name: ntfy_tailscale
+    image: tailscale/tailscale:latest
+    hostname: ntfy
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - ./ts-ntfy:/var/lib/tailscale
+      - ./ts-ntfy-config:/config
+    networks:
+      ntfy_internal:
+        ipv4_address: 172.28.4.10
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    container_name: ntfy_app
+    image: binwiederhier/ntfy:latest
+    command: serve
+    restart: unless-stopped
+    depends_on:
+      ts-ntfy:
+        condition: service_started
+    environment:
+      TZ: ${TZ}
+      NTFY_BASE_URL: https://ntfy.tu-tailnet.ts.net
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+    volumes:
+      - ./cache:/var/cache/ntfy
+    network_mode: service:ts-ntfy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  ntfy_internal:
+    name: ntfy_internal
+    ipam:
+      config:
+        - subnet: 172.28.4.0/24
+```
+
+:::tip
+Sustituye `https://ntfy.tu-tailnet.ts.net` en `NTFY_BASE_URL` por tu dominio real de tailnet — ntfy lo usa para construir los enlaces que aparecen dentro de las propias notificaciones.
+:::
+
+### El fichero `serve.json`
+
+ntfy sirve HTTP plano en el puerto 80, como Vaultwarden.
+
+*Ventana de terminal*
+
+```bash
+mkdir -p ts-ntfy-config
+vim ts-ntfy-config/serve.json
+```
+
+```json
+{
+  "TCP": {
+    "443": {
+      "HTTPS": true
+    }
+  },
+  "Web": {
+    "ntfy.tu-tailnet.ts.net:443": {
+      "Handlers": {
+        "/": {
+          "Proxy": "http://127.0.0.1:80"
+        }
+      }
+    }
+  }
+}
+```
+
+### Levanta el servicio
+
+*Ventana de terminal*
+
+```bash
+docker compose up -d
+```
+
+### Suscríbete desde el móvil
+
+Instala la app de ntfy ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) / [iOS](https://apps.apple.com/us/app/ntfy/id1625396347)). A diferencia del servicio público, hay que decirle a la app que use **tu propio servidor** en vez del de por defecto:
+
+1. Abre la app → **+** (añadir suscripción)
+2. Toca **Use another server**
+3. Introduce `https://ntfy.tu-tailnet.ts.net` como servidor y `homelab-updates` (el valor de `NTFY_TOPIC`) como tema
+
+No olvides desactivar la caducidad del dispositivo también para `ntfy` en [login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines).
+
+---
+
 ## Watchtower: notificaciones de actualizaciones
 
-Hasta ahora hemos desplegado cuatro servicios (Nextcloud, Vaultwarden, Immich y sus piezas internas), cada uno en su carpeta. Mantenerlos actualizados a mano, comprobando uno por uno si hay imagen nueva, no escala. **Watchtower** vigila todos los contenedores del host y te avisa cuando hay una actualización disponible.
+Hasta ahora hemos desplegado varios servicios (Nextcloud, Vaultwarden, Immich y sus piezas internas), cada uno en su carpeta. Mantenerlos actualizados a mano, comprobando uno por uno si hay imagen nueva, no escala. **Watchtower** vigila todos los contenedores del host y te avisa cuando hay una actualización disponible — usando el servidor ntfy que acabas de desplegar.
 
 :::caution
 La imagen clásica `containrrr/watchtower` fue **archivada el 17 de diciembre de 2025** — sus mantenedores dejaron el proyecto y ya no recibe parches de seguridad. La usamos aquí con el fork activamente mantenido y compatible: **`nickfedor/watchtower`**.
 :::
 
-A diferencia de los servicios anteriores, Watchtower no necesita su propia carpeta con sidecar de Tailscale — no tiene interfaz web que exponer, solo corre en segundo plano vigilando el resto de contenedores a través del socket de Docker.
+A diferencia de los servicios anteriores, Watchtower no necesita sidecar de Tailscale propio — no tiene interfaz web que exponer. Pero sí necesita hablar con `ntfy`, así que lo conectamos a la misma red interna `ntfy_internal` que creamos antes.
 
 ### Estructura de carpeta
 
@@ -396,6 +542,22 @@ A diferencia de los servicios anteriores, Watchtower no necesita su propia carpe
 mkdir -p ~/homelab/watchtower
 cd ~/homelab/watchtower
 ```
+
+### El `.env`
+
+*Ventana de terminal*
+
+```bash
+vim .env
+```
+
+```bash
+NTFY_TOPIC=homelab-updates
+```
+
+:::caution
+Usa el mismo valor que pusiste en `NTFY_TOPIC` dentro del `.env` de ntfy — son dos ficheros `.env` independientes (cada servicio tiene el suyo), pero el nombre del tema tiene que coincidir en ambos.
+:::
 
 ### El `docker-compose.yml`
 
@@ -415,39 +577,31 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ntfy_internal
     environment:
       TZ: Europe/Madrid
       WATCHTOWER_MONITOR_ONLY: "true"
       WATCHTOWER_SCHEDULE: "0 0 9 * * *"
       WATCHTOWER_NOTIFICATIONS: shoutrrr
-      WATCHTOWER_NOTIFICATION_URL: ntfy://ntfy.sh/${NTFY_TOPIC}
+      WATCHTOWER_NOTIFICATION_URL: ntfy://172.28.4.10/${NTFY_TOPIC}?scheme=http
     env_file:
       - .env
     security_opt:
       - no-new-privileges:true
+
+networks:
+  ntfy_internal:
+    external: true
 ```
 
 `WATCHTOWER_SCHEDULE: "0 0 9 * * *"` comprueba actualizaciones todos los días a las 9:00 de la mañana. Ajusta la expresión cron a tu gusto.
 
-### Notificaciones con ntfy
+Usamos la **IP fija** de `ts-ntfy` (`172.28.4.10`) y `?scheme=http` porque, dentro de la red interna `ntfy_internal`, hablamos directamente en HTTP plano — el HTTPS de Tailscale solo hace falta para el tráfico que sale hacia tu móvil, no para esta comunicación interna entre contenedores del mismo host.
 
-Usamos [ntfy.sh](https://ntfy.sh) porque es la forma más simple de recibir notificaciones push que existe: no hay que registrarse, ni crear ningún bot, ni conseguir tokens. Solo necesitas un "tema" — un nombre único que tú te inventas, a modo de canal privado.
-
-1. Elige un nombre de tema difícil de adivinar, por ejemplo `ciprigeek-homelab-a3f9k2` (cualquiera que sepa el nombre exacto del tema puede leer tus notificaciones, así que cuanto más aleatorio, mejor).
-2. Instala la app de **ntfy** en tu móvil ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) / [iOS](https://apps.apple.com/us/app/ntfy/id1625396347)), o simplemente abre `https://ntfy.sh/tu-tema` en el navegador.
-3. Suscríbete a tu tema desde la app (botón **+** → pega el nombre del tema).
-
-`.env`:
-
-*Ventana de terminal*
-
-```bash
-vim .env
-```
-
-```bash
-NTFY_TOPIC=ciprigeek-homelab-a3f9k2
-```
+:::caution
+`ntfy_internal` está declarada como `external: true` en este compose porque la crea el stack de `ntfy`, no este. **Levanta primero `ntfy` y después `watchtower`** — si lo haces al revés, Docker se quejará de que la red no existe todavía.
+:::
 
 ### Levanta el servicio
 
@@ -457,7 +611,7 @@ NTFY_TOPIC=ciprigeek-homelab-a3f9k2
 docker compose up -d
 ```
 
-Comprueba los logs para confirmar que ha detectado el resto de contenedores, y que la notificación de arranque te ha llegado a la app de ntfy (o al navegador si tienes `https://ntfy.sh/tu-tema` abierto):
+Comprueba los logs para confirmar que ha detectado el resto de contenedores y que la notificación de arranque te ha llegado a la app de ntfy:
 
 *Ventana de terminal*
 
@@ -465,7 +619,7 @@ Comprueba los logs para confirmar que ha detectado el resto de contenedores, y q
 docker compose logs -f watchtower
 ```
 
-A partir de ahora, cada vez que Nextcloud, Vaultwarden o Immich tengan una imagen nueva disponible, te llegará una notificación push — y decides tú cuándo y cómo actualizar cada uno.
+A partir de ahora, cada vez que Nextcloud, Vaultwarden o Immich tengan una imagen nueva disponible, te llegará una notificación push a tu propio servidor — y decides tú cuándo y cómo actualizar cada uno.
 
 ---
 
@@ -473,8 +627,9 @@ A partir de ahora, cada vez que Nextcloud, Vaultwarden o Immich tengan una image
 
 - Vaultwarden desplegado como gestor de contraseñas autoalojado, con registro cerrado tras crear tu cuenta.
 - Immich desplegado con base de datos vectorial, caché Redis y motor de machine learning propios.
-- Ambos con subdominio propio y HTTPS automático vía Tailscale, sin abrir un solo puerto en el router.
-- Watchtower vigilando todos los contenedores del homelab y avisándote por ntfy cuando hay actualizaciones, sin aplicarlas por su cuenta.
-- El mismo patrón de carpeta + sidecar Tailscale + IPs fijas que ya conoces del episodio 2, aplicado a dos servicios más.
+- Tu propio servidor de notificaciones ntfy, sin depender de ningún servicio de terceros.
+- Watchtower vigilando todos los contenedores del homelab y avisándote a través de tu ntfy cuando hay actualizaciones, sin aplicarlas por su cuenta.
+- Todos con subdominio propio y HTTPS automático vía Tailscale, sin abrir un solo puerto en el router.
+- El mismo patrón de carpeta + sidecar Tailscale + IPs fijas que ya conoces del episodio 2, aplicado a servicios adicionales.
 
 Con esto cerramos, por ahora, la serie de "Tu primer HomeLab (powered by HP)". Si te ha servido, ya sabes dónde encontrar el resto de episodios: en la [documentación completa en ciprigeek.com](/homelab-by-hp/).
