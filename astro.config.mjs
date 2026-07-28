@@ -26,6 +26,7 @@ export default defineConfig({
 							{ label: 'Índice — Homelab', slug: 'homelab-by-hp' },
 							{ label: '01 — Preparando el servidor', slug: 'homelab-by-hp/01-preparando-el-servidor' },
 							{ label: '02 — Docker y Nextcloud', slug: 'homelab-by-hp/02-docker-y-nextcloud' },
+							{ label: '03 — Fotos y contraseñas: Immich y Vaultwarden', slug: 'homelab-by-hp/03-immich-y-vaultwarden' },
 					],
 				},
 			],
