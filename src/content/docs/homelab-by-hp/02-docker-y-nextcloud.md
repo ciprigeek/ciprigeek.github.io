@@ -8,6 +8,8 @@ En el [episodio 1](/homelab-by-hp/01-preparando-el-servidor/) dejamos el servido
 
 Con esa base ya podemos empezar a desplegar servicios de verdad. En este episodio instalamos Docker, montamos la estructura de carpetas que vamos a usar durante toda la serie, y desplegamos nuestro primer servicio: **Nextcloud**, con acceso remoto seguro y su propio subdominio gracias a Tailscale.
 
+En el [episodio 3](/homelab-by-hp/03-immich-y-vaultwarden/) seguimos con dos servicios muy populares en cualquier homelab: **Immich** para fotos y **Vaultwarden** para contraseñas.
+
 ---
 
 ## Por qué Docker

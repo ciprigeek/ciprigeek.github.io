@@ -7,5 +7,6 @@ En esta serie encontrarás una guía paso a paso para preparar un servidor, inst
 
 - [01 — Preparando el servidor](/homelab-by-hp/01-preparando-el-servidor/)
 - [02 — Docker y Nextcloud](/homelab-by-hp/02-docker-y-nextcloud/)
+- [03 — Fotos y contraseñas: Immich y Vaultwarden](/homelab-by-hp/03-immich-y-vaultwarden/)
 
 Más episodios se añadirán conforme avancemos.
