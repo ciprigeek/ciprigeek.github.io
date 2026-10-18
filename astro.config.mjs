@@ -5,6 +5,13 @@ import starlight from '@astrojs/starlight';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://ciprigeek.com',
+	vite: {
+		// Starlight importa js-yaml v4 (export default); empaquetarlo evita que el
+		// prerender lo resuelva a la v5 de la raíz, que ya no lo exporta.
+		environments: {
+			prerender: { resolve: { noExternal: ['js-yaml'] } },
+		},
+	},
 	integrations: [
 		starlight({
 			title: 'Cipri Geek',
